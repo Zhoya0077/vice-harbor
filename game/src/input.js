@@ -1,53 +1,103 @@
-// Keyboard and pointer input. Held keys give a steering direction; one-shot presses (start or
-// restart, pause) are queued as bit flags and taken once by the loop, so a press between two
-// frames is never lost and never counted twice.
+// Keyboard state plus the one-shot presses the screens need. Held keys are read as a level every
+// frame; Enter/R/P/E/M/F are latched as flags and drained once by the loop, so a key tapped
+// between frames is neither lost nor counted twice.
 
-export const ACTION_CONFIRM = 1;
-export const ACTION_PAUSE = 2;
+export const PRESS_CONFIRM = 1;
+export const PRESS_PAUSE = 2;
+export const PRESS_RESTART = 4;
+export const PRESS_USE = 8;
+export const PRESS_MUTE = 16;
 
-const LEFT = new Set(['ArrowLeft', 'KeyA']);
-const RIGHT = new Set(['ArrowRight', 'KeyD']);
-const CONFIRM = new Set(['Space', 'Enter']);
-const PAUSE = new Set(['KeyP', 'Escape']);
+const MOVE_KEYS = new Set([
+  'KeyW', 'KeyA', 'KeyS', 'KeyD',
+  'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight',
+]);
+const ONE_SHOT = new Map([
+  ['Enter', PRESS_CONFIRM],
+  ['NumpadEnter', PRESS_CONFIRM],
+  ['Space', PRESS_CONFIRM],
+  ['KeyP', PRESS_PAUSE],
+  ['Escape', PRESS_PAUSE],
+  ['KeyR', PRESS_RESTART],
+  ['KeyE', PRESS_USE],
+  ['KeyM', PRESS_MUTE],
+]);
 
-export function createInput(target) {
-  let left = false;
-  let right = false;
-  let actions = 0;
+export function createInput(canvas) {
+  const held = new Set();
+  let presses = 0;
+  let pointerDown = false;
 
   window.addEventListener('keydown', (event) => {
-    if (LEFT.has(event.code)) left = true;
-    else if (RIGHT.has(event.code)) right = true;
-    else if (CONFIRM.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_CONFIRM;
-    } else if (PAUSE.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_PAUSE;
-    } else return;
-    event.preventDefault();
-  });
-  window.addEventListener('keyup', (event) => {
-    if (LEFT.has(event.code)) left = false;
-    else if (RIGHT.has(event.code)) right = false;
-  });
-  // A key released while the tab is hidden never sends keyup: let go of everything on blur.
-  window.addEventListener('blur', () => {
-    left = false;
-    right = false;
-  });
-  target.addEventListener('pointerdown', () => {
-    actions |= ACTION_CONFIRM;
+    if (event.target && event.target.tagName === 'INPUT') return;
+    if (MOVE_KEYS.has(event.code)) {
+      held.add(event.code);
+      event.preventDefault();
+      return;
+    }
+    const flag = ONE_SHOT.get(event.code);
+    if (flag !== undefined) {
+      if (!event.repeat) presses |= flag;
+      event.preventDefault();
+      return;
+    }
+    if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
+      held.add('Shift');
+      event.preventDefault();
+    }
   });
 
+  window.addEventListener('keyup', (event) => {
+    held.delete(event.code);
+    if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') held.delete('Shift');
+  });
+
+  // A key let go while the tab is hidden never sends keyup: drop everything on blur.
+  window.addEventListener('blur', () => {
+    held.clear();
+    pointerDown = false;
+  });
+
+  canvas.addEventListener('pointerdown', () => {
+    pointerDown = true;
+    presses |= PRESS_CONFIRM;
+  });
+  window.addEventListener('pointerup', () => {
+    pointerDown = false;
+  });
+
+  function axis(negA, negB, posA, posB) {
+    const neg = held.has(negA) || held.has(negB) ? 1 : 0;
+    const pos = held.has(posA) || held.has(posB) ? 1 : 0;
+    return pos - neg;
+  }
+
   return {
-    /** -1 for left, 1 for right, 0 for neither or both. */
-    direction() {
-      return (right ? 1 : 0) - (left ? 1 : 0);
+    /** -1..1 each; x is right, y is down. Normalised so diagonals are not faster. */
+    move() {
+      let x = axis('KeyA', 'ArrowLeft', 'KeyD', 'ArrowRight');
+      let y = axis('KeyW', 'ArrowUp', 'KeyS', 'ArrowDown');
+      if (x !== 0 && y !== 0) {
+        const inv = Math.SQRT1_2;
+        x *= inv;
+        y *= inv;
+      }
+      return { x, y };
     },
-    /** The one-shot presses since the last call, as ACTION_* flags. */
-    takeActions() {
-      const taken = actions;
-      actions = 0;
-      return taken;
+    sprinting() {
+      return held.has('Shift');
+    },
+    handbrake() {
+      return held.has('Space');
+    },
+    /** Drain the one-shot presses as PRESS_* bits. */
+    take() {
+      const value = presses;
+      presses = 0;
+      return value;
+    },
+    pointerHeld() {
+      return pointerDown;
     },
   };
 }
