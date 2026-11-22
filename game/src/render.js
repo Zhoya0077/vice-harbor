@@ -827,32 +827,34 @@ export function createRenderer(canvas) {
     ctx.fill();
   }
 
-  /** The strobe: a big pulsing halo plus a sweeping beacon cone, drawn in world space. */
+  /** The strobe: a tight pulsing halo plus a sweeping beacon cone, drawn in world space. */
   function drawPoliceGlow(car, t) {
     const phase = Math.floor(t * 9) % 2 === 0;
     const color = car.siren ? (phase ? '#ff2b3d' : '#2f6bff') : '#8892a6';
     const pulse = car.siren ? 0.75 + Math.sin(t * 18) * 0.25 : 0.3;
     ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = radial(car.x, car.y, 150, [
-      [0, rgba(color, 0.78 * pulse)],
-      [0.3, rgba(color, 0.34 * pulse)],
+    // Kept small and centred: a wide wash turns the white-and-blue livery underneath it into
+    // an unreadable blob, which is the one thing a chase frame cannot afford.
+    ctx.fillStyle = radial(car.x, car.y, 86, [
+      [0, rgba(color, 0.46 * pulse)],
+      [0.34, rgba(color, 0.2 * pulse)],
       [1, rgba(color, 0)],
     ]);
-    ctx.fillRect(car.x - 132, car.y - 132, 264, 264);
+    ctx.fillRect(car.x - 86, car.y - 86, 172, 172);
     // A sweeping beam, the thing the eye catches first in a chase.
     if (car.siren) {
       const sweep = t * 3.1 + car.id;
       ctx.save();
       ctx.translate(car.x, car.y);
       ctx.rotate(sweep);
-      const beam = ctx.createLinearGradient(0, 0, 150, 0);
-      beam.addColorStop(0, rgba(color, 0.5 * pulse));
+      const beam = ctx.createLinearGradient(0, 0, 132, 0);
+      beam.addColorStop(0, rgba(color, 0.26 * pulse));
       beam.addColorStop(1, rgba(color, 0));
       ctx.fillStyle = beam;
       ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(150, -34);
-      ctx.lineTo(150, 34);
+      ctx.moveTo(14, 0);
+      ctx.lineTo(132, -22);
+      ctx.lineTo(132, 22);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
@@ -1254,7 +1256,7 @@ export function createRenderer(canvas) {
 
     // Top-right: the shift clock and district. Countdown on the left, city clock right.
     const clockW = 234;
-    panel(VIEW_W - clockW - 18, 16, clockW, 78, 0.72, 'rgba(255,255,255,0.08)');
+    panel(VIEW_W - clockW - 18, 16, clockW, 86, 0.72, 'rgba(255,255,255,0.08)');
     const shiftLow = state.shift < 45;
     text('SHIFT LEFT', VIEW_W - clockW - 2, 38, 9, PALETTE.muted, 'left', 700, FONT_MONO);
     text(formatShift(state.shift), VIEW_W - clockW - 2, 64, 27, shiftLow && Math.sin(state.time * 6) > 0 ? '#ff8a94' : '#f2f5ff', 'left', 800, FONT_DISPLAY);

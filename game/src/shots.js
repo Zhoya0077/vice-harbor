@@ -147,12 +147,13 @@ function stageChase(world) {
     district: 'Neon Mile',
   };
   state.jobWait = 999;
-  // Three cruisers boxed in ahead and to the sides, where the frame can see them.
+  // Three cruisers close behind on the same avenue, nose up at the player's bumper: the
+  // frame should read as a pursuit from the first glance, not as traffic in the distance.
   state.police.length = 0;
   const spots = [
-    { x: 1452, y: 968, angle: -Math.PI / 2 },
-    { x: 1536, y: 902, angle: Math.PI / 2 + 0.35 },
-    { x: 1372, y: 1082, angle: -Math.PI / 2 + 0.22 },
+    { x: 1462, y: 1338, angle: -Math.PI / 2 },
+    { x: 1522, y: 1352, angle: -Math.PI / 2 - 0.04 },
+    { x: 1492, y: 1428, angle: -Math.PI / 2 + 0.03 },
   ];
   for (let i = 0; i < spots.length; i += 1) {
     const unit = world.spawnPoliceUnit();
